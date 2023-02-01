@@ -106,7 +106,7 @@ async def editMessage():
         antiCrash=await bot.send_message(chat_id=chats_id[0],text="antiCrash",disable_notification=True)
         botStateMain.prevMessage=antiCrash.message_id
 
-
+    print("23")
 
 
     botStateMain.save()
