@@ -5,7 +5,7 @@ import pandas as pd
 import pytz
 import pickle
 
-def time_format(seconds: int) -> str:
+def time_format(seconds: int,isStriped=False) -> str:
     timeOfStart=datetime.datetime.now()
     if seconds is not None:
         seconds = int(seconds)
@@ -15,19 +15,34 @@ def time_format(seconds: int) -> str:
         s = seconds % 3600 % 60
         timeOfend = datetime.datetime.now()
         print("SPEEEED: ",timeOfend-timeOfStart)
-        if d > 0:
-            return '{:02d} днів {:02d} годин {:02d} хвилин {:02d} сек'.format(d, h, m, s)
-        elif h > 0:
-            return '{:02d} годин {:02d} хвилин {:02d} секунд'.format(h, m, s)
-        elif m > 0:
-            return '{:02d} хвилин {:02d} сек'.format(m, s)
-        elif s > 0:
-            return '{:02d} сек'.format(s)
+        if isStriped:
+            if d > 0:
+                return '{:02d}:{:02d}:{:02d}:{:02d}'.format(d, h, m, s)
+            elif h > 0:
+                return '{:02d}:{:02d}:{:02d}'.format(h, m, s)
+            elif m > 0:
+                return '{:02d}:{:02d}'.format(m, s)
+            elif s > 0:
+                return '{:02d}'.format(s)
+        else:
+            if d > 0:
+                return '{:02d} днів {:02d} годин {:02d} хвилин {:02d} сек'.format(d, h, m, s)
+            elif h > 0:
+                return '{:02d} годин {:02d} хвилин {:02d} секунд'.format(h, m, s)
+            elif m > 0:
+                return '{:02d} хвилин {:02d} сек'.format(m, s)
+            elif s > 0:
+                return '{:02d} сек'.format(s)
     return '-'
 
 def getNowTime():
     timeWithUTC = pytz.timezone("Europe/Kyiv")
     return datetime.datetime.now(timeWithUTC).replace(tzinfo=None)
+
+async def timeLeft(t2,isStrip=True):
+    t1=datetime.datetime.strptime(getNowTime().strftime("%H:%M:%S"),"%H:%M:%S")
+    t2=datetime.datetime.strptime(t2, "%H:%M:%S")
+    return time_format(round((t2-t1).total_seconds()),isStriped=isStrip)
 
 def stampToHMS(timeStamp):
     return datetime.datetime.fromtimestamp(timeStamp).strftime("%H:%M:%S")

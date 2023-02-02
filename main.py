@@ -7,11 +7,16 @@ import time
 import threading
 import logging
 from calendar import firstweekday
+import socket
+
 import aiogram
+import aiohttp
 from aiogram import Bot, Dispatcher, executor, types
 
 from aiogram.dispatcher import FSMContext
 from aiogram.types import ParseMode
+from aiogram.utils.exceptions import NetworkError
+from aiohttp import ClientOSError
 from flask import Flask, request, render_template, redirect, url_for
 
 import flaskThread
@@ -28,7 +33,7 @@ import json
 
 from currentstate import botStates
 from currentstate import getNowTime
-from currentstate import timeDetailed,stampToHMS,time_format
+from currentstate import timeDetailed,stampToHMS,time_format,timeLeft
 from getTimeTable import detectCurrentEventReturnString,getNextItem
 #CONFIG
 chats_id=[
@@ -38,8 +43,18 @@ admin_id=[
     "317465871"
 ]
 
+dick=[
+    "00:00:00",
+    "03:00:00",
+    "06:00:00",
+    "09:00:00",
+    "12:00:00",
+    "15:00:00",
+    "18:00:00",
+    "21:00:00"
+]
 
-
+nextTimes=[]
 
 #UPDATE TIMES in sec
 TIME_CHECK_PERIOD=1
@@ -52,6 +67,7 @@ botStateMain=botStates()
 
 
 
+
 async def editMessage():
     global firstStart
     global timeTable
@@ -61,19 +77,29 @@ async def editMessage():
     prevMessageId=botStateMain.prevMessage
     currentMessageId=botStateMain.currentMessage
 
+
+    nowTime=getNowTime()
+
     #detect pos in timetable
-    now=getNowTime().strftime("%H:%M:S")
+    now=nowTime.strftime("%H:%M:S")
     currDayOfWeek = getNowTime().weekday()
     currCell = int(now.split(":")[0]) // 3
     currRowCell = currCell + currDayOfWeek * 8
 
+    times=[
+        await getNextItem(dick, currCell, 1),
+        await getNextItem(dick, currCell, 2),
+        await getNextItem(dick, currCell, 3),
+        await getNextItem(dick, currCell, 4),
+        await getNextItem(dick, currCell, 5),
+    ]
 
 
     timeTable=await getTimetable()
     #firstStart=not firstStart
 
 
-    offSet=1
+    offSet=0
 
     #events, where events[0]=current event, event[1]=next event, etc.
     events=[
@@ -82,6 +108,7 @@ async def editMessage():
         await detectCurrentEventReturnString(await getNextItem(timeTable,currRowCell,2+offSet)),
         await detectCurrentEventReturnString(await getNextItem(timeTable,currRowCell,3+offSet)),
         await detectCurrentEventReturnString(await getNextItem(timeTable,currRowCell,4+offSet)),
+        await detectCurrentEventReturnString(await getNextItem(timeTable,currRowCell,5+offSet))
     ]
 
     print(events)
@@ -91,26 +118,76 @@ async def editMessage():
     try:
         match currentEvent:
             case 0: #black zone
-                await dp.bot.edit_message_text(chat_id=chats_id[0],text=f"⬛️⬛️⬛️СВІТЛО ВІДСУТНЄ⬛️⬛️⬛️\n"
-                                                                        f"Світло було вимкненно о {stampToHMS(botStateMain.timeOfDisable)}\n"
-                                                                        f"{getNowTime().strftime('%H:%M:%S')}",message_id=currentMessageId)
-                botStateMain.timeOfEnable=getNowTime().timestamp()
+                timer=nowTime.timestamp()-botStateMain.timeOfDisable
+                await dp.bot.edit_message_text(chat_id=chats_id[0],text=f"⬛️⬛️⬛️СВІТЛО ВІДСУТНЄ⬛️⬛️⬛️\n\n"
+                                                                        f"Світло вимкненно о {stampToHMS(botStateMain.timeOfDisable)}\n"
+                                                                        f"Світло відсутнє протягом:\n"
+                                                                        f"{time_format(timer)}\n"
+                                                                        f"    ---------------------------------------    \n"
+                                                                        f"До {events[1]} о {times[0]}:\n"
+                                                                        f"{await timeLeft(times[0],False)}\n"
+                                                                        f"    ---------------------------------------    \n"
+                                                                        f"До {events[2]} о {times[1]}:\n"
+                                                                        f"{await timeLeft(times[1])}\n"
+                                                                        f"До {events[3]} о {times[2]}:\n"
+                                                                        f"{await timeLeft(times[2])}\n"
+                                                                        f"До {events[4]} о {times[3]}:\n"
+                                                                        f"{await timeLeft(times[3])}\n"
+                                                                        f"До {events[5]} о {times[4]}:\n"
+                                                                        f"{await timeLeft(times[4])}\n"
+                                                                        f"Наразі за графіком:\n"
+                                                                        f"    ---------------------------------------    \n"
+                                                                        f"{events[0]}\n"
+                                                                        f"    ---------------------------------------    \n"
+                                                                        f"{urlDonate}"
+                                               ,message_id=currentMessageId,parse_mode=ParseMode.HTML,disable_web_page_preview=True)
+                botStateMain.timeOfEnable=nowTime.timestamp()
             case 1: #white zone
-                await dp.bot.edit_message_text(chat_id=chats_id[0], text=f"🟩🟩🟩СВІТЛО Є!!!🟩🟩🟩\n"
-                                                                         f"Світло було увімкненно о {stampToHMS(botStateMain.timeOfEnable)}\n"
-                                                                         f"{getNowTime().strftime('%H:%M:%S')}",message_id=currentMessageId)
-                botStateMain.timeOfDisable = getNowTime().timestamp()
+                timer = nowTime.timestamp()-botStateMain.timeOfEnable
+                await dp.bot.edit_message_text(chat_id=chats_id[0], text=f"🟩🟩🟩СВІТЛО Є!!!🟩🟩🟩\n\n"
+                                                                         f"Світло увімкненно о {stampToHMS(botStateMain.timeOfEnable)}\n"
+                                                                         f"Світло присутнє протягом:\n"
+                                                                         f"{time_format(timer)}\n"
+                                                                         f"    ---------------------------------------    \n"
+                                                                         f"До {events[1]} о {times[0]}:\n"
+                                                                         f"{await timeLeft(times[0], False)}\n"
+                                                                         f"    ---------------------------------------    \n"
+                                                                         f"До {events[2]} о {times[1]}:\n"
+                                                                         f"{await timeLeft(times[1])}\n"
+                                                                         f"До {events[3]} о {times[2]}:\n"
+                                                                         f"{await timeLeft(times[2])}\n"
+                                                                         f"До {events[4]} о {times[3]}:\n"
+                                                                         f"{await timeLeft(times[3])}\n"
+                                                                         f"До {events[5]} о {times[4]}:\n"
+                                                                         f"{await timeLeft(times[4])}\n"
+                                                                         f"Наразі за графіком:\n"
+                                                                         f"    ---------------------------------------    \n"
+                                                                         f"{events[0]}\n"
+                                                                         f"    ---------------------------------------    \n"
+                                                                         f"{urlDonate}"
+                                               ,message_id=currentMessageId, parse_mode=ParseMode.HTML,disable_web_page_preview=True)
+                botStateMain.timeOfDisable = nowTime.timestamp()
 
 
     except aiogram.utils.exceptions.MessageIdInvalid:
         antiCrash=await bot.send_message(chat_id=chats_id[0],text="antiCrash",disable_notification=True)
         botStateMain.prevMessage=antiCrash.message_id
+    except aiogram.utils.exceptions.MessageNotModified:
+        print("nothing to change")
 
-    print("23")
+    except aiogram.utils.exceptions.NetworkError or\
+           asyncio.exceptions.TimeoutError or \
+           socket.gaierror or \
+           aiohttp.client_exceptions.ClientConnectorError or \
+           TimeoutError or \
+           aiogram.utils.exceptions.NetworkError or \
+           ClientOSError or \
+           NetworkError:
+        print("Network Error")
 
 
     botStateMain.save()
-    print("edit")
+    print("editFuncDone")
 
 
 async def sendMessageOnChangeEvent():
@@ -123,9 +200,6 @@ async def sendMessageOnChangeEvent():
     lightEnabled=botStateMain.lightEnabled
 
     if (currEvent==0) and (lightEnabled):
-
-
-
 
         message = await dp.bot.send_message(chat_id=chats_id[0], text="OFF")
 
@@ -190,7 +264,7 @@ async def startEditMessage():
     while True:
         try:
             await editMessage()
-        except aiogram.utils.exceptions.MessageToEditNotFound:
+        except aiogram.utils.exceptions.MessageToEditNotFound or aiogram.utils.exceptions.NetworkError:
             print("cant fnd message")
         await asyncio.sleep(BOT_EDIT_PERIOD)
 
@@ -200,9 +274,19 @@ async def startTimeCheck():
         await asyncio.sleep(TIME_CHECK_PERIOD)
 
 
+
+def runTimeCheck():
+    loop=asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    loop.run_until_complete(startTimeCheck())
+    loop.close()
+
 def startInLoop():
-    asyncio.get_event_loop().create_task(startEditMessage())
-    asyncio.get_event_loop().create_task(startTimeCheck())
+    thread=threading.Thread(target=runTimeCheck)
+    thread.start()
+
+    asyncio.run(startEditMessage())
 
 if __name__=="__main__":
     bot = Bot(token=API_TOKEN)
