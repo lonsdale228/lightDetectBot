@@ -13,10 +13,9 @@ async def recurs():
 
 async def postInf():
     try:
-        requests.post(url=url,json={"penis":500})
+        requests.post(url=url,json={"package":500})
     except requests.exceptions.ConnectionError:
         print("No connection with server!")
-    print("huy")
     time.sleep(2)
 
 
