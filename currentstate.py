@@ -14,7 +14,6 @@ def time_format(seconds: int,isStriped=False) -> str:
         m = seconds % 3600 // 60
         s = seconds % 3600 % 60
         timeOfend = datetime.datetime.now()
-        print("SPEEEED: ",timeOfend-timeOfStart)
         if isStriped:
             if d > 0:
                 return '{:02d}:{:02d}:{:02d}:{:02d}'.format(d, h, m, s)
