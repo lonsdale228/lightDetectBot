@@ -1,14 +1,8 @@
-
-
+from flask import Flask
+from currentstate import getNowTime
 
 
 def flaskStart(botStateMain):
-    import datetime
-
-    from flask import Flask
-
-    from currentstate import getNowTime
-
     app = Flask(__name__)
     app.config['ENV'] = 'development'
 

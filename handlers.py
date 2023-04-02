@@ -1,33 +1,13 @@
 from aiogram import Dispatcher,types
 from main import disableNotification,botStateMain
 
-
 def initHandlers(dp):
     Dispatcher.set_current(dp)
-
-    #change requests. Receive or not
-    @dp.message_handler(commands=['req'], state="*")
-    async def stopReq(message: types.Message,state: FSMContext):
-        async with state.proxy() as data:
-            data["getReq"]= not data["getReq"]
-            await message.answer(text=f"Запросы изменены на { data['getReq'] }", reply=True)
-
     @dp.message_handler(commands=['stop'], state="*")
-    async def stopStartBot(message: types.Message,state: FSMContext):
-        async with state.proxy() as data:
-            data["stopBot"]=not data["stopBot"]
-        await message.answer(text=f"Бота призупинено: { data['stopBot'] }", reply=True)
+    async def stop_resume_Bot(message: types.Message):
+        botStateMain.is_start = not botStateMain.is_start
+        await message.answer(text=f"Бота призупинено: { not botStateMain.is_start }", reply=True)
 
-
-    # @dp.message_handler(commands=['updateExcel'], state="*")
-    # async def updateExcel(message: types.Message,state: FSMContext):
-    #     with state.proxy() as data:
-    #         data["timeTable"]=getTimeTable.getTimetable()
-    #     await message.answer(text="Таблиця відключень оновлена", reply=True)
-    #
-    # @dp.message_handler(commands=['setzone'], state="*")
-    # async def setZone(message: types.Message,state: FSMContext):
-    #     global currZone
-    #     currZone = int(message.text.split()[1])
-    #     print(message.text)
-    #     await message.answer(text="Зону встановлено", reply=True)
+    # @dp.message_handler(commands=['notify'], state="*")
+    # async def stop_notify(message: types.Message):
+    #     await message.answer(text=f"Бота призупинено: {not botStateMain.is_start}", reply=True)

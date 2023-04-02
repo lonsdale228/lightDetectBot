@@ -81,7 +81,8 @@ class botStates:
     lightEnabled = None
     timeOfEnable=getNowTime().timestamp()
     timeOfDisable=getNowTime().timestamp()
-
+    is_start=True
+    notify=True
 
     def __init__(self):
         try:

@@ -240,17 +240,8 @@ async def editMessage():
     except aiogram.utils.exceptions.MessageNotModified:
         print("nothing to change")
 
-    except aiogram.utils.exceptions.NetworkError or\
-           asyncio.exceptions.TimeoutError or \
-           socket.gaierror or \
-           aiohttp.client_exceptions.ClientConnectorError or \
-           TimeoutError or \
-           aiogram.utils.exceptions.NetworkError or \
-           ClientOSError or \
-           NetworkError or \
-           aiogram.utils.exceptions.RetryAfter or \
-           aiogram.utils.exceptions.TelegramAPIError:
-        print("Network Error")
+    except Exception as ex:
+        print(ex)
 
 
     botStateMain.save()
